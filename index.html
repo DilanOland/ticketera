@@ -449,6 +449,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .filter-btn {
@@ -878,6 +879,124 @@
             font-weight: 600;
         }
 
+        /* Filtros de Fecha */
+        .date-filters {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--medium-gray);
+        }
+
+        .date-filter-btn {
+            padding: 8px 12px;
+            border: 2px solid var(--medium-gray);
+            border-radius: var(--radius);
+            background: var(--primary-white);
+            color: var(--dark-gray);
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .date-filter-btn.active {
+            border-color: var(--info);
+            background: var(--info);
+            color: white;
+        }
+
+        .date-range-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .date-input {
+            padding: 8px 12px;
+            border: 2px solid var(--medium-gray);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .date-input:focus {
+            outline: none;
+            border-color: var(--info);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .apply-date-btn {
+            padding: 8px 16px;
+            background: var(--info);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .apply-date-btn:hover {
+            background: var(--primary-dark-blue);
+            transform: translateY(-2px);
+        }
+
+        .clear-date-btn {
+            padding: 8px 16px;
+            background: var(--light-gray);
+            color: var(--dark-gray);
+            border: 2px solid var(--medium-gray);
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .clear-date-btn:hover {
+            background: var(--medium-gray);
+        }
+
+        .date-search-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .date-search-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid var(--medium-gray);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .date-search-input:focus {
+            outline: none;
+            border-color: var(--info);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .date-search-btn {
+            padding: 8px 16px;
+            background: var(--info);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .date-search-btn:hover {
+            background: var(--primary-dark-blue);
+            transform: translateY(-2px);
+        }
+
         /* Responsive */
         @media (max-width: 1200px) {
             .sidebar {
@@ -927,6 +1046,17 @@
             }
             .stats-container {
                 grid-template-columns: 1fr;
+            }
+            .date-filters {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .date-range-selector {
+                flex-direction: column;
+                width: 100%;
+            }
+            .date-input {
+                width: 100%;
             }
         }
 
@@ -1180,6 +1310,44 @@
                             </div>
                         </div>
 
+                        <!-- Filtros de Fecha -->
+                        <div class="date-filters">
+                            <div style="font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-calendar-alt"></i>
+                                Filtrar por Fecha:
+                            </div>
+                            
+                            <!-- Filtros Rápidos -->
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button class="date-filter-btn" data-date-filter="today">Hoy</button>
+                                <button class="date-filter-btn" data-date-filter="yesterday">Ayer</button>
+                                <button class="date-filter-btn" data-date-filter="week">Esta semana</button>
+                                <button class="date-filter-btn" data-date-filter="month">Este mes</button>
+                                <button class="date-filter-btn" data-date-filter="last-month">Mes pasado</button>
+                            </div>
+                            
+                            <!-- Rango de Fechas Personalizado -->
+                            <div class="date-range-selector">
+                                <input type="date" id="startDate" class="date-input">
+                                <span>a</span>
+                                <input type="date" id="endDate" class="date-input">
+                                <button class="apply-date-btn" id="applyDateRange">
+                                    <i class="fas fa-filter"></i> Aplicar
+                                </button>
+                                <button class="clear-date-btn" id="clearDateRange">
+                                    <i class="fas fa-times"></i> Limpiar
+                                </button>
+                            </div>
+                            
+                            <!-- Búsqueda por Fecha Específica -->
+                            <div class="date-search-container">
+                                <input type="date" id="specificDate" class="date-search-input" placeholder="Buscar por fecha específica">
+                                <button class="date-search-btn" id="searchByDate">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="tickets-list" id="ticketsList">
                             <!-- Los tickets se cargarán aquí dinámicamente -->
                             <div class="empty-state">
@@ -1285,6 +1453,7 @@
                 this.currentFilter = 'all';
                 this.isLoading = false;
                 this.currentPage = 'tickets';
+                this.dateFilter = null;
                 this.init();
             }
 
@@ -1293,6 +1462,7 @@
                 await this.loadTicketsFromSupabase();
                 this.updateStats();
                 this.setupNavigation();
+                this.setupDateFilters();
             }
 
             setupEventListeners() {
@@ -1339,6 +1509,152 @@
                         this.closeExportModal();
                     }
                 });
+            }
+
+            setupDateFilters() {
+                // Filtros rápidos de fecha
+                document.querySelectorAll('.date-filter-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.date-filter-btn').forEach(b => {
+                            b.classList.remove('active');
+                        });
+                        btn.classList.add('active');
+                        
+                        const filterType = btn.dataset.dateFilter;
+                        this.applyDateFilter(filterType);
+                    });
+                });
+
+                // Rango de fechas personalizado
+                document.getElementById('applyDateRange').addEventListener('click', () => {
+                    this.applyCustomDateRange();
+                });
+
+                // Limpiar filtro de fecha
+                document.getElementById('clearDateRange').addEventListener('click', () => {
+                    this.clearDateFilter();
+                });
+
+                // Búsqueda por fecha específica
+                document.getElementById('searchByDate').addEventListener('click', () => {
+                    this.searchBySpecificDate();
+                });
+            }
+
+            applyDateFilter(filterType) {
+                const today = new Date();
+                let startDate, endDate;
+
+                switch(filterType) {
+                    case 'today':
+                        startDate = new Date(today);
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate = new Date(today);
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+                    case 'yesterday':
+                        startDate = new Date(today);
+                        startDate.setDate(today.getDate() - 1);
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate = new Date(today);
+                        endDate.setDate(today.getDate() - 1);
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+                    case 'week':
+                        startDate = new Date(today);
+                        startDate.setDate(today.getDate() - today.getDay());
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate = new Date(today);
+                        endDate.setDate(today.getDate() + (6 - today.getDay()));
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+                    case 'month':
+                        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+                    case 'last-month':
+                        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                        endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+                    default:
+                        return;
+                }
+
+                this.dateFilter = {
+                    type: filterType,
+                    startDate,
+                    endDate
+                };
+
+                this.renderTickets();
+                this.showNotification('Filtro aplicado', `Mostrando tickets del período: ${filterType}`, 'success');
+            }
+
+            applyCustomDateRange() {
+                const startDateInput = document.getElementById('startDate').value;
+                const endDateInput = document.getElementById('endDate').value;
+
+                if (!startDateInput || !endDateInput) {
+                    this.showNotification('Error', 'Por favor selecciona ambas fechas', 'error');
+                    return;
+                }
+
+                const startDate = new Date(startDateInput);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(endDateInput);
+                endDate.setHours(23, 59, 59, 999);
+
+                if (startDate > endDate) {
+                    this.showNotification('Error', 'La fecha de inicio no puede ser mayor que la fecha de fin', 'error');
+                    return;
+                }
+
+                this.dateFilter = {
+                    type: 'custom',
+                    startDate,
+                    endDate
+                };
+
+                this.renderTickets();
+                this.showNotification('Filtro aplicado', `Mostrando tickets del ${startDateInput} al ${endDateInput}`, 'success');
+            }
+
+            searchBySpecificDate() {
+                const specificDateInput = document.getElementById('specificDate').value;
+
+                if (!specificDateInput) {
+                    this.showNotification('Error', 'Por favor selecciona una fecha', 'error');
+                    return;
+                }
+
+                const startDate = new Date(specificDateInput);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(specificDateInput);
+                endDate.setHours(23, 59, 59, 999);
+
+                this.dateFilter = {
+                    type: 'specific',
+                    startDate,
+                    endDate
+                };
+
+                this.renderTickets();
+                this.showNotification('Búsqueda completada', `Mostrando tickets del ${specificDateInput}`, 'success');
+            }
+
+            clearDateFilter() {
+                this.dateFilter = null;
+                document.querySelectorAll('.date-filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.getElementById('startDate').value = '';
+                document.getElementById('endDate').value = '';
+                document.getElementById('specificDate').value = '';
+                
+                this.renderTickets();
+                this.showNotification('Filtro eliminado', 'Mostrando todos los tickets', 'success');
             }
 
             setupNavigation() {
@@ -1589,9 +1905,7 @@
                             dataToExport = this.tickets.filter(ticket => ticket.status === 'completed');
                             fileName = `Reporte_Completados_${this.getFormattedDate()}`;
                         } else {
-                            dataToExport = this.currentFilter === 'all' 
-                                ? this.tickets 
-                                : this.tickets.filter(ticket => ticket.priority === this.currentFilter);
+                            dataToExport = this.getFilteredTickets();
                             fileName = `Reporte_Filtrado_${this.currentFilter}_${this.getFormattedDate()}`;
                         }
                         break;
@@ -1604,6 +1918,25 @@
                 this.generateProfessionalExcel(dataToExport, fileName, type);
                 this.closeExportModal();
                 this.showNotification('✅ Reporte generado', `El archivo ${fileName}.xlsx se ha descargado correctamente`, 'success');
+            }
+
+            getFilteredTickets() {
+                let filteredTickets = this.tickets;
+
+                // Aplicar filtro de prioridad
+                if (this.currentFilter !== 'all') {
+                    filteredTickets = filteredTickets.filter(ticket => ticket.priority === this.currentFilter);
+                }
+
+                // Aplicar filtro de fecha si existe
+                if (this.dateFilter) {
+                    filteredTickets = filteredTickets.filter(ticket => {
+                        const ticketDate = new Date(ticket.created_at);
+                        return ticketDate >= this.dateFilter.startDate && ticketDate <= this.dateFilter.endDate;
+                    });
+                }
+
+                return filteredTickets;
             }
 
             generateProfessionalExcel(data, fileName, type) {
@@ -2227,9 +2560,7 @@
 
             renderTickets() {
                 const container = document.getElementById('ticketsList');
-                const filteredTickets = this.currentFilter === 'all' 
-                    ? this.tickets 
-                    : this.tickets.filter(ticket => ticket.priority === this.currentFilter);
+                const filteredTickets = this.getFilteredTickets();
 
                 if (filteredTickets.length === 0) {
                     let message = '';
@@ -2241,6 +2572,9 @@
                     } else if (this.currentFilter !== 'all') {
                         message = `No hay tickets con prioridad ${this.getPriorityText(this.currentFilter).toLowerCase()}.`;
                         icon = 'fas fa-filter';
+                    } else if (this.dateFilter) {
+                        message = `No hay tickets en el período de fecha seleccionado.`;
+                        icon = 'fas fa-calendar-times';
                     } else {
                         message = 'No hay tickets registrados aún.';
                     }
