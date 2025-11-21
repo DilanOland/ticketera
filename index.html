@@ -879,18 +879,37 @@
             font-weight: 600;
         }
 
-        /* Filtros de Fecha */
-        .date-filters {
+        /* Filtros de Fecha - MEJORADO */
+        .date-filters-container {
+            background: var(--light-gray);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--medium-gray);
+        }
+
+        .date-filters-header {
             display: flex;
-            gap: 10px;
             align-items: center;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid var(--medium-gray);
+            gap: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: var(--primary-dark-blue);
+        }
+
+        .date-filters-header i {
+            color: var(--info);
+        }
+
+        .date-filters-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
         }
 
         .date-filter-btn {
-            padding: 8px 12px;
+            padding: 8px 16px;
             border: 2px solid var(--medium-gray);
             border-radius: var(--radius);
             background: var(--primary-white);
@@ -899,6 +918,9 @@
             transition: var(--transition);
             font-weight: 500;
             font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .date-filter-btn.active {
@@ -907,11 +929,16 @@
             color: white;
         }
 
+        .date-filter-btn:hover:not(.active) {
+            border-color: var(--info);
+            color: var(--info);
+        }
+
         .date-range-selector {
             display: flex;
             gap: 10px;
             align-items: center;
-            margin-top: 10px;
+            flex-wrap: wrap;
         }
 
         .date-input {
@@ -920,6 +947,7 @@
             border-radius: var(--radius);
             font-size: 0.9rem;
             transition: var(--transition);
+            min-width: 140px;
         }
 
         .date-input:focus {
@@ -937,6 +965,9 @@
             cursor: pointer;
             font-weight: 500;
             transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .apply-date-btn:hover {
@@ -953,6 +984,9 @@
             cursor: pointer;
             font-weight: 500;
             transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .clear-date-btn:hover {
@@ -963,7 +997,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
-            margin-top: 10px;
+            flex-wrap: wrap;
         }
 
         .date-search-input {
@@ -973,6 +1007,7 @@
             border-radius: var(--radius);
             font-size: 0.9rem;
             transition: var(--transition);
+            min-width: 150px;
         }
 
         .date-search-input:focus {
@@ -990,11 +1025,43 @@
             cursor: pointer;
             font-weight: 500;
             transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .date-search-btn:hover {
             background: var(--primary-dark-blue);
             transform: translateY(-2px);
+        }
+
+        .active-filters-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid var(--info);
+            border-radius: var(--radius);
+            padding: 12px 15px;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .active-filters-info i {
+            color: var(--info);
+        }
+
+        .filter-tag {
+            background: var(--info);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin: 0 5px;
         }
 
         /* Responsive */
@@ -1047,15 +1114,21 @@
             .stats-container {
                 grid-template-columns: 1fr;
             }
-            .date-filters {
+            .date-filters-row {
                 flex-direction: column;
-                align-items: flex-start;
             }
             .date-range-selector {
                 flex-direction: column;
                 width: 100%;
             }
             .date-input {
+                width: 100%;
+            }
+            .date-search-container {
+                flex-direction: column;
+                width: 100%;
+            }
+            .date-search-input {
                 width: 100%;
             }
         }
@@ -1122,7 +1195,7 @@
                         <i class="fas fa-filter"></i>
                         <div class="export-option-content">
                             <h4>Reporte Filtrado</h4>
-                            <p>Exportar solo los tickets visibles con el filtro actual</p>
+                            <p>Exportar solo los tickets visibles con los filtros actuales</p>
                         </div>
                     </div>
                     <div class="export-option" onclick="ticketSystem.exportToExcel('stats')">
@@ -1310,41 +1383,62 @@
                             </div>
                         </div>
 
-                        <!-- Filtros de Fecha -->
-                        <div class="date-filters">
-                            <div style="font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <!-- Filtros de Fecha - MEJORADO -->
+                        <div class="date-filters-container">
+                            <div class="date-filters-header">
                                 <i class="fas fa-calendar-alt"></i>
                                 Filtrar por Fecha:
                             </div>
                             
                             <!-- Filtros Rápidos -->
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <button class="date-filter-btn" data-date-filter="today">Hoy</button>
-                                <button class="date-filter-btn" data-date-filter="yesterday">Ayer</button>
-                                <button class="date-filter-btn" data-date-filter="week">Esta semana</button>
-                                <button class="date-filter-btn" data-date-filter="month">Este mes</button>
-                                <button class="date-filter-btn" data-date-filter="last-month">Mes pasado</button>
+                            <div class="date-filters-row">
+                                <button class="date-filter-btn" data-date-filter="today">
+                                    <i class="fas fa-sun"></i> Hoy
+                                </button>
+                                <button class="date-filter-btn" data-date-filter="yesterday">
+                                    <i class="fas fa-calendar-day"></i> Ayer
+                                </button>
+                                <button class="date-filter-btn" data-date-filter="week">
+                                    <i class="fas fa-calendar-week"></i> Esta semana
+                                </button>
+                                <button class="date-filter-btn" data-date-filter="month">
+                                    <i class="fas fa-calendar"></i> Este mes
+                                </button>
+                                <button class="date-filter-btn" data-date-filter="last-month">
+                                    <i class="fas fa-arrow-left"></i> Mes pasado
+                                </button>
                             </div>
                             
                             <!-- Rango de Fechas Personalizado -->
-                            <div class="date-range-selector">
-                                <input type="date" id="startDate" class="date-input">
-                                <span>a</span>
-                                <input type="date" id="endDate" class="date-input">
-                                <button class="apply-date-btn" id="applyDateRange">
-                                    <i class="fas fa-filter"></i> Aplicar
-                                </button>
-                                <button class="clear-date-btn" id="clearDateRange">
-                                    <i class="fas fa-times"></i> Limpiar
-                                </button>
+                            <div class="date-filters-row">
+                                <div class="date-range-selector">
+                                    <input type="date" id="startDate" class="date-input" placeholder="Fecha inicio">
+                                    <span style="color: var(--dark-gray);">a</span>
+                                    <input type="date" id="endDate" class="date-input" placeholder="Fecha fin">
+                                    <button class="apply-date-btn" id="applyDateRange">
+                                        <i class="fas fa-filter"></i> Aplicar Rango
+                                    </button>
+                                    <button class="clear-date-btn" id="clearDateRange">
+                                        <i class="fas fa-times"></i> Limpiar
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Búsqueda por Fecha Específica -->
-                            <div class="date-search-container">
-                                <input type="date" id="specificDate" class="date-search-input" placeholder="Buscar por fecha específica">
-                                <button class="date-search-btn" id="searchByDate">
-                                    <i class="fas fa-search"></i> Buscar
-                                </button>
+                            <div class="date-filters-row">
+                                <div class="date-search-container">
+                                    <input type="date" id="specificDate" class="date-search-input" placeholder="Buscar por fecha específica">
+                                    <button class="date-search-btn" id="searchByDate">
+                                        <i class="fas fa-search"></i> Buscar Fecha
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Información de Filtros Activos -->
+                            <div id="activeFiltersInfo" class="active-filters-info" style="display: none;">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Filtros aplicados:</span>
+                                <span id="filtersText"></span>
                             </div>
                         </div>
 
@@ -1454,6 +1548,7 @@
                 this.isLoading = false;
                 this.currentPage = 'tickets';
                 this.dateFilter = null;
+                this.activeDateFilterType = null;
                 this.init();
             }
 
@@ -1494,6 +1589,7 @@
                             btn.classList.add('active');
                             this.currentFilter = btn.dataset.filter;
                             this.renderTickets();
+                            this.updateActiveFiltersInfo();
                         });
                     }
                 });
@@ -1544,6 +1640,7 @@
             applyDateFilter(filterType) {
                 const today = new Date();
                 let startDate, endDate;
+                let filterText = '';
 
                 switch(filterType) {
                     case 'today':
@@ -1551,6 +1648,7 @@
                         startDate.setHours(0, 0, 0, 0);
                         endDate = new Date(today);
                         endDate.setHours(23, 59, 59, 999);
+                        filterText = 'Hoy';
                         break;
                     case 'yesterday':
                         startDate = new Date(today);
@@ -1559,6 +1657,7 @@
                         endDate = new Date(today);
                         endDate.setDate(today.getDate() - 1);
                         endDate.setHours(23, 59, 59, 999);
+                        filterText = 'Ayer';
                         break;
                     case 'week':
                         startDate = new Date(today);
@@ -1567,16 +1666,19 @@
                         endDate = new Date(today);
                         endDate.setDate(today.getDate() + (6 - today.getDay()));
                         endDate.setHours(23, 59, 59, 999);
+                        filterText = 'Esta semana';
                         break;
                     case 'month':
                         startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                         endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
                         endDate.setHours(23, 59, 59, 999);
+                        filterText = 'Este mes';
                         break;
                     case 'last-month':
                         startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
                         endDate = new Date(today.getFullYear(), today.getMonth(), 0);
                         endDate.setHours(23, 59, 59, 999);
+                        filterText = 'Mes pasado';
                         break;
                     default:
                         return;
@@ -1587,9 +1689,11 @@
                     startDate,
                     endDate
                 };
+                this.activeDateFilterType = filterType;
 
                 this.renderTickets();
-                this.showNotification('Filtro aplicado', `Mostrando tickets del período: ${filterType}`, 'success');
+                this.updateActiveFiltersInfo();
+                this.showNotification('Filtro aplicado', `Mostrando tickets del período: ${filterText}`, 'success');
             }
 
             applyCustomDateRange() {
@@ -1616,8 +1720,15 @@
                     startDate,
                     endDate
                 };
+                this.activeDateFilterType = 'custom';
+
+                // Limpiar filtros rápidos
+                document.querySelectorAll('.date-filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
 
                 this.renderTickets();
+                this.updateActiveFiltersInfo();
                 this.showNotification('Filtro aplicado', `Mostrando tickets del ${startDateInput} al ${endDateInput}`, 'success');
             }
 
@@ -1639,13 +1750,21 @@
                     startDate,
                     endDate
                 };
+                this.activeDateFilterType = 'specific';
+
+                // Limpiar filtros rápidos
+                document.querySelectorAll('.date-filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
 
                 this.renderTickets();
+                this.updateActiveFiltersInfo();
                 this.showNotification('Búsqueda completada', `Mostrando tickets del ${specificDateInput}`, 'success');
             }
 
             clearDateFilter() {
                 this.dateFilter = null;
+                this.activeDateFilterType = null;
                 document.querySelectorAll('.date-filter-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
@@ -1654,7 +1773,50 @@
                 document.getElementById('specificDate').value = '';
                 
                 this.renderTickets();
+                this.updateActiveFiltersInfo();
                 this.showNotification('Filtro eliminado', 'Mostrando todos los tickets', 'success');
+            }
+
+            updateActiveFiltersInfo() {
+                const infoContainer = document.getElementById('activeFiltersInfo');
+                const filtersText = document.getElementById('filtersText');
+                
+                let filters = [];
+                
+                // Filtro de prioridad
+                if (this.currentFilter !== 'all') {
+                    const priorityText = this.getPriorityText(this.currentFilter);
+                    filters.push(`<span class="filter-tag"><i class="fas fa-flag"></i> ${priorityText}</span>`);
+                }
+                
+                // Filtro de fecha
+                if (this.dateFilter) {
+                    let dateText = '';
+                    switch(this.activeDateFilterType) {
+                        case 'today': dateText = 'Hoy'; break;
+                        case 'yesterday': dateText = 'Ayer'; break;
+                        case 'week': dateText = 'Esta semana'; break;
+                        case 'month': dateText = 'Este mes'; break;
+                        case 'last-month': dateText = 'Mes pasado'; break;
+                        case 'custom': 
+                            const start = document.getElementById('startDate').value;
+                            const end = document.getElementById('endDate').value;
+                            dateText = `${start} a ${end}`;
+                            break;
+                        case 'specific':
+                            const specific = document.getElementById('specificDate').value;
+                            dateText = specific;
+                            break;
+                    }
+                    filters.push(`<span class="filter-tag"><i class="fas fa-calendar"></i> ${dateText}</span>`);
+                }
+                
+                if (filters.length > 0) {
+                    filtersText.innerHTML = filters.join('');
+                    infoContainer.style.display = 'flex';
+                } else {
+                    infoContainer.style.display = 'none';
+                }
             }
 
             setupNavigation() {
@@ -1898,16 +2060,36 @@
                         fileName = `Reporte_Completo_Tickets_${this.getFormattedDate()}`;
                         break;
                     case 'current':
-                        if (this.currentPage === 'pendientes') {
-                            dataToExport = this.tickets.filter(ticket => ticket.status === 'active');
-                            fileName = `Reporte_Pendientes_${this.getFormattedDate()}`;
-                        } else if (this.currentPage === 'completados') {
-                            dataToExport = this.tickets.filter(ticket => ticket.status === 'completed');
-                            fileName = `Reporte_Completados_${this.getFormattedDate()}`;
-                        } else {
-                            dataToExport = this.getFilteredTickets();
-                            fileName = `Reporte_Filtrado_${this.currentFilter}_${this.getFormattedDate()}`;
+                        // Exportar EXACTAMENTE lo que se está viendo en pantalla
+                        dataToExport = this.getFilteredTickets();
+                        
+                        // Construir nombre de archivo descriptivo
+                        let filterInfo = '';
+                        if (this.currentFilter !== 'all') {
+                            filterInfo += `_${this.currentFilter}`;
                         }
+                        if (this.dateFilter) {
+                            let dateInfo = '';
+                            switch(this.activeDateFilterType) {
+                                case 'today': dateInfo = 'hoy'; break;
+                                case 'yesterday': dateInfo = 'ayer'; break;
+                                case 'week': dateInfo = 'esta_semana'; break;
+                                case 'month': dateInfo = 'este_mes'; break;
+                                case 'last-month': dateInfo = 'mes_pasado'; break;
+                                case 'custom': 
+                                    const start = document.getElementById('startDate').value;
+                                    const end = document.getElementById('endDate').value;
+                                    dateInfo = `${start}_a_${end}`;
+                                    break;
+                                case 'specific':
+                                    const specific = document.getElementById('specificDate').value;
+                                    dateInfo = specific;
+                                    break;
+                            }
+                            filterInfo += `_${dateInfo}`;
+                        }
+                        
+                        fileName = `Reporte_Filtrado${filterInfo}_${this.getFormattedDate()}`;
                         break;
                     case 'stats':
                         dataToExport = this.generateStatsData();
@@ -2026,9 +2208,7 @@
                 const headerData = [
                     ['🏢 OLAND SEGUROS'],
                     ['🎫 SISTEMA DE GESTIÓN DE TICKETS'],
-                    [fileName.includes('Pendientes') ? '📋 REPORTE DE TICKETS PENDIENTES' : 
-                     fileName.includes('Completados') ? '✅ REPORTE DE TICKETS COMPLETADOS' : 
-                     '📊 REPORTE COMPLETO DE TICKETS'],
+                    [fileName],
                     [`Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`],
                     [''],
                     [''] // Espacio para encabezados de columnas
