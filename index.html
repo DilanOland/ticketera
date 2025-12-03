@@ -688,7 +688,7 @@
             border-bottom: 1px solid var(--medium-gray);
             display: flex;
             justify-content: space-between;
-            align-items: center;
+ align-items: center;
         }
 
         .modal-title {
@@ -1266,7 +1266,7 @@
                     <div class="header-subtitle">
                         <span id="connectionStatus" style="display: flex; align-items: center; gap: 5px;">
                             <i class="fas fa-circle" style="color: var(--success); font-size: 0.7rem;"></i>
-                            Conectado a Supabase
+                            Conectando a Supabase...
                         </span>
                     </div>
                 </div>
@@ -1533,14 +1533,14 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN DE SUPABASE CON TUS CREDENCIALES REALES
-        const SUPABASE_URL = 'https://jjcyjjeidubptzocparj.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqY3lqamVpZHVicHR6b2NwYXJqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzAzNDU0OSwiZXhwIjoyMDc4NjEwNTQ5fQ.XUSPJG7zXUZj61e_cUWq2YNbGQaHfTpV9khacb5zCjk';
+        // CONFIGURACIÓN SUPABASE - TUS CREDENCIALES CORRECTAS
+        const SUPABASE_URL = 'https://rzniwlwqrdrxvtwbekog.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6bml3bHdxcmRyeHZ0d2Jla29nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NzYxNjcsImV4cCI6MjA3ODU1MjE2N30.j5D5ds4_S_tnCKtE7J_P_m4HPRyaVxDbb6XwFgmwL4U';
 
         // Inicializar Supabase
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Sistema de Tickets con Supabase
+        // Sistema de Tickets SOLO SUPABASE
         class TicketSystem {
             constructor() {
                 this.tickets = [];
@@ -1549,15 +1549,105 @@
                 this.currentPage = 'tickets';
                 this.dateFilter = null;
                 this.activeDateFilterType = null;
+                this.connectionEstablished = false;
+                
                 this.init();
             }
 
             async init() {
                 this.setupEventListeners();
-                await this.loadTicketsFromSupabase();
-                this.updateStats();
                 this.setupNavigation();
                 this.setupDateFilters();
+                
+                await this.testConnection();
+                
+                if (this.connectionEstablished) {
+                    await this.loadTicketsFromSupabase();
+                    this.updateStats();
+                }
+            }
+
+            async testConnection() {
+                try {
+                    console.log('🔗 Probando conexión a Supabase...');
+                    
+                    // Primero crear la tabla si no existe
+                    await this.createTableIfNotExists();
+                    
+                    // Probar conexión con una consulta simple
+                    const { data, error } = await supabase
+                        .from('tickets')
+                        .select('count')
+                        .limit(1);
+                        
+                    if (error) {
+                        console.error('❌ Error en conexión:', error);
+                        this.showConnectionError(error.message);
+                        return false;
+                    }
+                    
+                    console.log('✅ Conexión a Supabase exitosa');
+                    this.updateConnectionStatus(true);
+                    this.connectionEstablished = true;
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ Error crítico en conexión:', error);
+                    this.showConnectionError(error.message);
+                    return false;
+                }
+            }
+
+            async createTableIfNotExists() {
+                try {
+                    // Intentamos crear la tabla automáticamente
+                    const { error } = await supabase.rpc('create_tickets_table_if_not_exists');
+                    
+                    // Si la función RPC no existe, continuamos (la tabla puede existir ya)
+                    if (error && !error.message.includes('function')) {
+                        console.log('ℹ️ Intentando crear tabla...');
+                        // Si no se puede crear automáticamente, mostrar instrucciones
+                        this.showTableCreationInstructions();
+                    }
+                } catch (error) {
+                    console.log('ℹ️ No se pudo crear tabla automáticamente');
+                }
+            }
+
+            showTableCreationInstructions() {
+                const message = `⚠️ La tabla 'tickets' no existe. Por favor, ejecuta este SQL en el editor SQL de Supabase:
+
+                CREATE TABLE tickets (
+                    id BIGSERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    priority VARCHAR(20) NOT NULL CHECK (priority IN ('low', 'medium', 'high')),
+                    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
+
+                ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+
+                CREATE POLICY "Enable all operations" ON tickets
+                    FOR ALL USING (true) WITH CHECK (true);`;
+                
+                console.warn(message);
+            }
+
+            showConnectionError(errorMessage) {
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.innerHTML = `
+                    <i class="fas fa-circle" style="color: var(--danger); font-size: 0.7rem;"></i>
+                    Error de conexión: ${errorMessage.substring(0, 50)}...
+                `;
+                statusElement.style.color = 'var(--danger)';
+                
+                this.showNotification(
+                    'Error de Conexión', 
+                    'No se puede conectar a Supabase. Verifica la tabla y permisos.', 
+                    'error'
+                );
             }
 
             setupEventListeners() {
@@ -1637,6 +1727,180 @@
                 });
             }
 
+            setupNavigation() {
+                // Navegación del sidebar
+                document.querySelectorAll('.menu-item[data-page]').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const page = item.getAttribute('data-page');
+                        this.showPage(page);
+                    });
+                });
+
+                // Botón de exportación en sidebar
+                document.getElementById('exportBtn').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.showExportModal();
+                });
+            }
+
+            async loadTicketsFromSupabase() {
+                if (!this.connectionEstablished) {
+                    this.showError('No hay conexión a Supabase');
+                    return;
+                }
+
+                this.showLoadingState();
+                
+                try {
+                    console.log('📥 Cargando tickets de Supabase...');
+                    
+                    const { data, error } = await supabase
+                        .from('tickets')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        throw error;
+                    }
+
+                    console.log(`✅ ${data?.length || 0} tickets cargados exitosamente`);
+                    this.tickets = data || [];
+                    this.updatePageContent();
+                    this.updateStats();
+                    
+                } catch (error) {
+                    console.error('❌ Error cargando tickets:', error);
+                    this.showError(`Error cargando tickets: ${error.message}`);
+                } finally {
+                    this.hideLoadingState();
+                }
+            }
+
+            async createTicket() {
+                if (!this.connectionEstablished) {
+                    this.showError('No hay conexión a Supabase');
+                    return;
+                }
+
+                if (this.isLoading) return;
+
+                const title = document.getElementById('ticketTitle').value;
+                const description = document.getElementById('ticketDescription').value;
+                const priority = document.querySelector('.priority-option.active').dataset.priority;
+
+                if (!title || !description) {
+                    this.showNotification('Completa los campos', 'Por favor llena tanto el título como la descripción', 'error');
+                    return;
+                }
+
+                this.setLoadingState(true);
+
+                const ticketData = {
+                    title,
+                    description,
+                    priority,
+                    status: 'active',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+
+                try {
+                    console.log('📤 Enviando ticket a Supabase...');
+                    
+                    const { data, error } = await supabase
+                        .from('tickets')
+                        .insert([ticketData])
+                        .select();
+
+                    if (error) {
+                        throw error;
+                    }
+
+                    console.log('✅ Ticket creado en Supabase:', data);
+                    
+                    const newTicket = data[0];
+                    this.tickets.unshift(newTicket);
+                    this.updatePageContent();
+                    this.updateStats();
+                    this.resetForm();
+                    
+                    this.showNotification('¡Ticket creado!', 'Tu novedad ha sido registrada en la base de datos', 'success');
+                    
+                } catch (error) {
+                    console.error('❌ Error creando ticket:', error);
+                    this.showError(`Error creando ticket: ${error.message}`);
+                } finally {
+                    this.setLoadingState(false);
+                }
+            }
+
+            async deleteTicket(ticketId) {
+                if (!confirm('¿Estás seguro de que quieres eliminar este ticket? Esta acción no se puede deshacer.')) {
+                    return;
+                }
+
+                if (!this.connectionEstablished) {
+                    this.showError('No hay conexión a Supabase');
+                    return;
+                }
+
+                try {
+                    const { error } = await supabase
+                        .from('tickets')
+                        .delete()
+                        .eq('id', ticketId);
+
+                    if (error) {
+                        throw error;
+                    }
+
+                    this.tickets = this.tickets.filter(ticket => ticket.id !== ticketId);
+                    this.updatePageContent();
+                    this.updateStats();
+                    
+                    this.showNotification('Ticket eliminado', 'La novedad ha sido eliminada de la base de datos', 'success');
+                    
+                } catch (error) {
+                    console.error('Error eliminando ticket:', error);
+                    this.showError(`Error eliminando ticket: ${error.message}`);
+                }
+            }
+
+            async updateTicketStatus(ticketId, newStatus) {
+                if (!this.connectionEstablished) {
+                    this.showError('No hay conexión a Supabase');
+                    return;
+                }
+
+                try {
+                    const { error } = await supabase
+                        .from('tickets')
+                        .update({ 
+                            status: newStatus,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', ticketId);
+
+                    if (error) throw error;
+
+                    const ticketIndex = this.tickets.findIndex(t => t.id === ticketId);
+                    if (ticketIndex !== -1) {
+                        this.tickets[ticketIndex].status = newStatus;
+                        this.tickets[ticketIndex].updated_at = new Date().toISOString();
+                        this.updatePageContent();
+                        this.updateStats();
+                    }
+                    
+                    this.showNotification('Ticket actualizado', `Ticket marcado como ${newStatus === 'completed' ? 'completado' : 'activo'}`, 'success');
+                    
+                } catch (error) {
+                    console.error('Error actualizando ticket:', error);
+                    this.showError(`Error actualizando ticket: ${error.message}`);
+                }
+            }
+
+            // Resto de los métodos se mantienen igual (render, filtros, etc.)
             applyDateFilter(filterType) {
                 const today = new Date();
                 let startDate, endDate;
@@ -1722,7 +1986,6 @@
                 };
                 this.activeDateFilterType = 'custom';
 
-                // Limpiar filtros rápidos
                 document.querySelectorAll('.date-filter-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
@@ -1752,7 +2015,6 @@
                 };
                 this.activeDateFilterType = 'specific';
 
-                // Limpiar filtros rápidos
                 document.querySelectorAll('.date-filter-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
@@ -1783,13 +2045,11 @@
                 
                 let filters = [];
                 
-                // Filtro de prioridad
                 if (this.currentFilter !== 'all') {
                     const priorityText = this.getPriorityText(this.currentFilter);
                     filters.push(`<span class="filter-tag"><i class="fas fa-flag"></i> ${priorityText}</span>`);
                 }
                 
-                // Filtro de fecha
                 if (this.dateFilter) {
                     let dateText = '';
                     switch(this.activeDateFilterType) {
@@ -1819,39 +2079,18 @@
                 }
             }
 
-            setupNavigation() {
-                // Navegación del sidebar
-                document.querySelectorAll('.menu-item[data-page]').forEach(item => {
-                    item.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const page = item.getAttribute('data-page');
-                        this.showPage(page);
-                    });
-                });
-
-                // Botón de exportación en sidebar
-                document.getElementById('exportBtn').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.showExportModal();
-                });
-            }
-
             showPage(pageName) {
-                // Actualizar menú activo
                 document.querySelectorAll('.menu-item').forEach(item => {
                     item.classList.remove('active');
                 });
                 document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
 
-                // Ocultar todas las páginas
                 document.querySelectorAll('.page').forEach(page => {
                     page.classList.remove('active');
                 });
 
-                // Mostrar página seleccionada
                 document.getElementById(`page-${pageName}`).classList.add('active');
 
-                // Actualizar título principal
                 const titles = {
                     'tickets': 'Sistema de Tickets',
                     'estadisticas': 'Estadísticas',
@@ -1880,237 +2119,13 @@
                 }
             }
 
-            async loadTicketsFromSupabase() {
-                this.showLoadingState();
-                
-                try {
-                    const { data, error } = await supabase
-                        .from('tickets')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-
-                    if (error) {
-                        throw error;
-                    }
-
-                    this.tickets = data || [];
-                    this.updatePageContent();
-                    this.updateConnectionStatus(true);
-                    
-                } catch (error) {
-                    console.error('Error cargando tickets:', error);
-                    this.showNotification('Error de conexión', 'No se pudieron cargar los tickets. Usando almacenamiento local.', 'error');
-                    this.loadFromLocalStorage();
-                    this.updateConnectionStatus(false);
-                } finally {
-                    this.hideLoadingState();
-                }
-            }
-
-            async createTicket() {
-                if (this.isLoading) return;
-
-                const title = document.getElementById('ticketTitle').value;
-                const description = document.getElementById('ticketDescription').value;
-                const priority = document.querySelector('.priority-option.active').dataset.priority;
-
-                if (!title || !description) {
-                    this.showNotification('Completa los campos', 'Por favor llena tanto el título como la descripción', 'error');
-                    return;
-                }
-
-                this.setLoadingState(true);
-
-                const ticketData = {
-                    title,
-                    description,
-                    priority,
-                    status: 'active',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
-
-                try {
-                    // Intentar guardar en Supabase
-                    const { data, error } = await supabase
-                        .from('tickets')
-                        .insert([ticketData])
-                        .select();
-
-                    if (error) {
-                        throw error;
-                    }
-
-                    const newTicket = data[0];
-                    this.tickets.unshift(newTicket);
-                    this.saveToLocalStorage();
-                    this.updatePageContent();
-                    this.updateStats();
-                    this.resetForm();
-                    
-                    this.showNotification('¡Ticket creado!', 'Tu novedad ha sido registrada en la base de datos', 'success');
-                    
-                } catch (error) {
-                    console.error('Error creando ticket:', error);
-                    // Fallback a localStorage
-                    this.createTicketLocal(title, description, priority);
-                } finally {
-                    this.setLoadingState(false);
-                }
-            }
-
-            createTicketLocal(title, description, priority) {
-                const ticket = {
-                    id: Date.now(),
-                    title,
-                    description,
-                    priority,
-                    status: 'active',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
-
-                this.tickets.unshift(ticket);
-                this.saveToLocalStorage();
-                this.updatePageContent();
-                this.updateStats();
-                this.resetForm();
-                
-                this.showNotification('Ticket creado (local)', 'Tu novedad ha sido guardada localmente', 'warning');
-            }
-
-            async deleteTicket(ticketId) {
-                if (!confirm('¿Estás seguro de que quieres eliminar este ticket? Esta acción no se puede deshacer.')) {
-                    return;
-                }
-
-                try {
-                    // Intentar eliminar de Supabase
-                    const { error } = await supabase
-                        .from('tickets')
-                        .delete()
-                        .eq('id', ticketId);
-
-                    if (error) {
-                        throw error;
-                    }
-
-                    this.tickets = this.tickets.filter(ticket => ticket.id !== ticketId);
-                    this.saveToLocalStorage();
-                    this.updatePageContent();
-                    this.updateStats();
-                    
-                    this.showNotification('Ticket eliminado', 'La novedad ha sido eliminada de la base de datos', 'success');
-                    
-                } catch (error) {
-                    console.error('Error eliminando ticket:', error);
-                    // Fallback a localStorage
-                    this.tickets = this.tickets.filter(ticket => ticket.id !== ticketId);
-                    this.saveToLocalStorage();
-                    this.updatePageContent();
-                    this.updateStats();
-                    this.showNotification('Ticket eliminado (local)', 'La novedad ha sido eliminada localmente', 'warning');
-                }
-            }
-
-            async updateTicketStatus(ticketId, newStatus) {
-                try {
-                    const { error } = await supabase
-                        .from('tickets')
-                        .update({ 
-                            status: newStatus,
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', ticketId);
-
-                    if (error) throw error;
-
-                    const ticketIndex = this.tickets.findIndex(t => t.id === ticketId);
-                    if (ticketIndex !== -1) {
-                        this.tickets[ticketIndex].status = newStatus;
-                        this.tickets[ticketIndex].updated_at = new Date().toISOString();
-                        this.saveToLocalStorage();
-                        this.updatePageContent();
-                        this.updateStats();
-                    }
-                    
-                    this.showNotification('Ticket actualizado', `Ticket marcado como ${newStatus === 'completed' ? 'completado' : 'activo'}`, 'success');
-                    
-                } catch (error) {
-                    console.error('Error actualizando ticket:', error);
-                    this.showNotification('Error', 'No se pudo actualizar el ticket', 'error');
-                }
-            }
-
-            showExportModal() {
-                document.getElementById('exportModal').classList.add('active');
-            }
-
-            closeExportModal() {
-                document.getElementById('exportModal').classList.remove('active');
-            }
-
-            exportToExcel(type = 'all') {
-                let dataToExport = [];
-                let fileName = '';
-
-                switch(type) {
-                    case 'all':
-                        dataToExport = this.tickets;
-                        fileName = `Reporte_Completo_Tickets_${this.getFormattedDate()}`;
-                        break;
-                    case 'current':
-                        // Exportar EXACTAMENTE lo que se está viendo en pantalla
-                        dataToExport = this.getFilteredTickets();
-                        
-                        // Construir nombre de archivo descriptivo
-                        let filterInfo = '';
-                        if (this.currentFilter !== 'all') {
-                            filterInfo += `_${this.currentFilter}`;
-                        }
-                        if (this.dateFilter) {
-                            let dateInfo = '';
-                            switch(this.activeDateFilterType) {
-                                case 'today': dateInfo = 'hoy'; break;
-                                case 'yesterday': dateInfo = 'ayer'; break;
-                                case 'week': dateInfo = 'esta_semana'; break;
-                                case 'month': dateInfo = 'este_mes'; break;
-                                case 'last-month': dateInfo = 'mes_pasado'; break;
-                                case 'custom': 
-                                    const start = document.getElementById('startDate').value;
-                                    const end = document.getElementById('endDate').value;
-                                    dateInfo = `${start}_a_${end}`;
-                                    break;
-                                case 'specific':
-                                    const specific = document.getElementById('specificDate').value;
-                                    dateInfo = specific;
-                                    break;
-                            }
-                            filterInfo += `_${dateInfo}`;
-                        }
-                        
-                        fileName = `Reporte_Filtrado${filterInfo}_${this.getFormattedDate()}`;
-                        break;
-                    case 'stats':
-                        dataToExport = this.generateStatsData();
-                        fileName = `Reporte_Estadisticas_Avanzado_${this.getFormattedDate()}`;
-                        break;
-                }
-
-                this.generateProfessionalExcel(dataToExport, fileName, type);
-                this.closeExportModal();
-                this.showNotification('✅ Reporte generado', `El archivo ${fileName}.xlsx se ha descargado correctamente`, 'success');
-            }
-
             getFilteredTickets() {
                 let filteredTickets = this.tickets;
 
-                // Aplicar filtro de prioridad
                 if (this.currentFilter !== 'all') {
                     filteredTickets = filteredTickets.filter(ticket => ticket.priority === this.currentFilter);
                 }
 
-                // Aplicar filtro de fecha si existe
                 if (this.dateFilter) {
                     filteredTickets = filteredTickets.filter(ticket => {
                         const ticketDate = new Date(ticket.created_at);
@@ -2121,504 +2136,48 @@
                 return filteredTickets;
             }
 
-            generateProfessionalExcel(data, fileName, type) {
-                const wb = XLSX.utils.book_new();
+            renderTickets() {
+                const container = document.getElementById('ticketsList');
+                const filteredTickets = this.getFilteredTickets();
 
-                if (type === 'stats') {
-                    this.createStatsSheet(wb, data);
-                } else {
-                    this.createTicketsSheet(wb, data, fileName);
-                    this.createExecutiveSummary(wb, data);
-                    this.createChartsSheet(wb, data);
-                }
-
-                XLSX.writeFile(wb, `${fileName}.xlsx`);
-            }
-
-            createStatsSheet(wb, stats) {
-                const statsData = [
-                    // Encabezado Corporativo
-                    ['', '', '', '', '', ''],
-                    ['🏢 OLAND SEGUROS', '', '', '', '', ''],
-                    ['📊 REPORTE ESTADÍSTICO AVANZADO', '', '', '', '', ''],
-                    ['Sistema de Gestión de Tickets y Novedades', '', '', '', '', ''],
-                    ['', '', '', '', '', ''],
+                if (filteredTickets.length === 0) {
+                    let message = '';
+                    let icon = 'fas fa-ticket-alt';
                     
-                    // Información del Reporte
-                    ['📋 INFORMACIÓN DEL REPORTE', '', '', '', '', ''],
-                    ['Fecha de generación:', new Date().toLocaleDateString('es-ES'), '', '', '', ''],
-                    ['Hora de generación:', new Date().toLocaleTimeString('es-ES'), '', '', '', ''],
-                    ['Período analizado:', 'Desde el inicio del sistema', '', '', '', ''],
-                    ['', '', '', '', '', ''],
-                    
-                    // RESUMEN EJECUTIVO
-                    ['🎯 RESUMEN EJECUTIVO', '', '', '', '', ''],
-                    ['Métrica', 'Valor', 'Porcentaje', 'Tendencia', 'Meta', 'Estado'],
-                    ['Total de Tickets', stats.totalTickets, '100%', '📈', 'N/A', '✅ Completado'],
-                    ['Tickets Activos', stats.activeTickets, `${stats.activePercentage}%`, stats.activeTrend, 'Minimizar', this.getStatusEmoji(stats.activePercentage, 20)],
-                    ['Tickets Completados', stats.completedTickets, `${stats.completionRate}%`, stats.completionTrend, 'Maximizar', this.getStatusEmoji(stats.completionRate, 80)],
-                    ['Eficiencia del Sistema', `${stats.efficiency}%`, `${stats.efficiency}%`, stats.efficiencyTrend, '> 85%', this.getStatusEmoji(stats.efficiency, 85)],
-                    ['', '', '', '', '', ''],
-                    
-                    // ANÁLISIS DE PRIORIDADES
-                    ['🚨 ANÁLISIS DE PRIORIDADES', '', '', '', '', ''],
-                    ['Prioridad', 'Cantidad', 'Porcentaje', 'Tickets Activos', 'Tickets Completados', 'Tasa de Completación'],
-                    ['🔴 ALTA URGENCIA', stats.highPriority, `${stats.highPercentage}%`, stats.highActive, stats.highCompleted, `${stats.highCompletionRate}%`],
-                    ['🟡 PRIORIDAD MEDIA', stats.mediumPriority, `${stats.mediumPercentage}%`, stats.mediumActive, stats.mediumCompleted, `${stats.mediumCompletionRate}%`],
-                    ['🟢 PRIORIDAD BAJA', stats.lowPriority, `${stats.lowPercentage}%`, stats.lowActive, stats.lowCompleted, `${stats.lowCompletionRate}%`],
-                    ['', '', '', '', '', ''],
-                    
-                    // ANÁLISIS TEMPORAL
-                    ['📅 ANÁLISIS TEMPORAL', '', '', '', '', ''],
-                    ['Período', 'Tickets Creados', 'Tickets Completados', 'Tasa de Completación', 'Tiempo Promedio', 'Eficiencia'],
-                    ['Últimos 7 días', stats.lastWeekCreated, stats.lastWeekCompleted, `${stats.lastWeekRate}%`, `${stats.lastWeekAvgTime}d`, this.getStatusEmoji(stats.lastWeekRate, 75)],
-                    ['Últimos 30 días', stats.lastMonthCreated, stats.lastMonthCompleted, `${stats.lastMonthRate}%`, `${stats.lastMonthAvgTime}d`, this.getStatusEmoji(stats.lastMonthRate, 75)],
-                    ['Total Histórico', stats.totalTickets, stats.completedTickets, `${stats.completionRate}%`, `${stats.avgCompletionTime}d`, this.getStatusEmoji(stats.completionRate, 80)],
-                    ['', '', '', '', '', ''],
-                    
-                    // INDICADORES CLAVE (KPIs)
-                    ['📈 INDICADORES CLAVE (KPIs)', '', '', '', '', ''],
-                    ['KPI', 'Valor Actual', 'Meta', 'Desviación', 'Tendencia', 'Evaluación'],
-                    ['Tasa de Completación', `${stats.completionRate}%`, '80%', `${(stats.completionRate - 80).toFixed(1)}%`, stats.completionTrend, this.getKpiStatus(stats.completionRate, 80)],
-                    ['Tiempo Promedio Resolución', `${stats.avgCompletionTime}d`, '7d', `${(stats.avgCompletionTime - 7).toFixed(1)}d`, stats.timeTrend, this.getKpiStatus(7/stats.avgCompletionTime*100, 100)],
-                    ['Backlog de Tickets', stats.activeTickets, '< 10', `${(stats.activeTickets - 10)}`, stats.backlogTrend, this.getKpiStatus(100 - (stats.activeTickets/50*100), 80)],
-                    ['Satisfacción del Sistema', `${stats.efficiency}%`, '85%', `${(stats.efficiency - 85).toFixed(1)}%`, stats.efficiencyTrend, this.getKpiStatus(stats.efficiency, 85)],
-                    ['', '', '', '', '', ''],
-                    
-                    // RECOMENDACIONES
-                    ['💡 RECOMENDACIONES ESTRATÉGICAS', '', '', '', '', ''],
-                    ['Área', 'Recomendación', 'Prioridad', 'Impacto Esperado', 'Esfuerzo', 'Plazo Sugerido'],
-                    ...stats.recommendations
-                ];
+                    if (this.tickets.length === 0) {
+                        message = 'Comienza creando tu primera novedad usando el formulario de la izquierda.';
+                        icon = 'fas fa-rocket';
+                    } else if (this.currentFilter !== 'all') {
+                        message = `No hay tickets con prioridad ${this.getPriorityText(this.currentFilter).toLowerCase()}.`;
+                        icon = 'fas fa-filter';
+                    } else if (this.dateFilter) {
+                        message = `No hay tickets en el período de fecha seleccionado.`;
+                        icon = 'fas fa-calendar-times';
+                    }
 
-                const ws = XLSX.utils.aoa_to_sheet(statsData);
-                
-                // Aplicar estilos y formatos
-                this.applyStatsStyles(ws, statsData.length, statsData[0].length);
-                
-                ws['!cols'] = [
-                    {wch: 25}, {wch: 15}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 15}
-                ];
-
-                XLSX.utils.book_append_sheet(wb, ws, "📊 Dashboard Ejecutivo");
-            }
-
-            createTicketsSheet(wb, data, fileName) {
-                // Encabezado decorativo
-                const headerData = [
-                    ['🏢 OLAND SEGUROS'],
-                    ['🎫 SISTEMA DE GESTIÓN DE TICKETS'],
-                    [fileName],
-                    [`Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`],
-                    [''],
-                    [''] // Espacio para encabezados de columnas
-                ];
-
-                // Datos de tickets con formato enriquecido
-                const ticketsData = data.map(ticket => ({
-                    '🔖 ID': ticket.id,
-                    '📌 TÍTULO': ticket.title,
-                    '📝 DESCRIPCIÓN': ticket.description,
-                    '🚨 PRIORIDAD': this.getPriorityEmoji(ticket.priority) + ' ' + this.getPriorityText(ticket.priority),
-                    '📊 ESTADO': this.getStatusEmoji(ticket.status === 'active' ? 0 : 100, 50) + ' ' + (ticket.status === 'active' ? 'PENDIENTE' : 'COMPLETADO'),
-                    '📅 FECHA CREACIÓN': new Date(ticket.created_at).toLocaleDateString('es-ES'),
-                    '⏰ HORA CREACIÓN': new Date(ticket.created_at).toLocaleTimeString('es-ES'),
-                    '🔄 ÚLTIMA ACTUALIZACIÓN': new Date(ticket.updated_at).toLocaleDateString('es-ES'),
-                    '⏱️ DÍAS TRANSCURRIDOS': Math.floor((new Date() - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)),
-                    '🎯 ETIQUETA TEMPORAL': this.getTimeLabel(ticket.created_at),
-                    '💡 OBSERVACIONES': this.generateObservations(ticket)
-                }));
-
-                // Combinar encabezado con datos
-                const allData = [
-                    ...headerData,
-                    Object.keys(ticketsData[0] || {}),
-                    ...ticketsData.map(ticket => Object.values(ticket))
-                ];
-
-                const ws = XLSX.utils.aoa_to_sheet(allData);
-                
-                // Configurar anchos de columna
-                ws['!cols'] = [
-                    {wch: 8},   // ID
-                    {wch: 35},  // Título
-                    {wch: 50},  // Descripción
-                    {wch: 15},  // Prioridad
-                    {wch: 15},  // Estado
-                    {wch: 12},  // Fecha
-                    {wch: 12},  // Hora
-                    {wch: 18},  // Actualización
-                    {wch: 8},   // Días
-                    {wch: 12},  // Etiqueta
-                    {wch: 30}   // Observaciones
-                ];
-
-                XLSX.utils.book_append_sheet(wb, ws, "🎫 Tickets Detallados");
-            }
-
-            createExecutiveSummary(wb, data) {
-                const totalTickets = data.length;
-                const activeTickets = data.filter(t => t.status === 'active').length;
-                const completedTickets = data.filter(t => t.status === 'completed').length;
-                const highPriority = data.filter(t => t.priority === 'high').length;
-                const mediumPriority = data.filter(t => t.priority === 'medium').length;
-                const lowPriority = data.filter(t => t.priority === 'low').length;
-
-                const completionRate = totalTickets > 0 ? ((completedTickets / totalTickets) * 100).toFixed(1) : 0;
-                const avgDaysActive = data.length > 0 ? 
-                    Math.floor(data.reduce((acc, ticket) => acc + Math.floor((new Date() - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)), 0) / data.length) : 0;
-
-                const summaryData = [
-                    ['🏆 RESUMEN EJECUTIVO - OLAND SEGUROS'],
-                    [''],
-                    ['📈 MÉTRICAS PRINCIPALES', '', '', ''],
-                    ['Indicador', 'Valor', 'Meta', 'Estado'],
-                    ['Total de Tickets', totalTickets, 'N/A', '📊'],
-                    ['Tickets Activos', activeTickets, '< 10', activeTickets < 10 ? '✅ Excelente' : '⚠️ Atención'],
-                    ['Tickets Completados', completedTickets, 'Maximizar', '✅'],
-                    ['Tasa de Completación', `${completionRate}%`, '> 80%', completionRate >= 80 ? '🎯 Cumplido' : '📈 En Progreso'],
-                    ['Tiempo Promedio', `${avgDaysActive} días`, '< 7 días', avgDaysActive < 7 ? '⚡ Excelente' : '⏱️ Regular'],
-                    [''],
-                    ['🎯 DISTRIBUCIÓN POR PRIORIDAD', '', '', ''],
-                    ['Prioridad', 'Cantidad', 'Porcentaje', 'Estado'],
-                    ['🔴 Alta Urgencia', highPriority, `${totalTickets > 0 ? ((highPriority / totalTickets) * 100).toFixed(1) : 0}%`, highPriority > 5 ? '🚨 Crítico' : '✅ Controlado'],
-                    ['🟡 Prioridad Media', mediumPriority, `${totalTickets > 0 ? ((mediumPriority / totalTickets) * 100).toFixed(1) : 0}%`, '📋 En Gestión'],
-                    ['🟢 Prioridad Baja', lowPriority, `${totalTickets > 0 ? ((lowPriority / totalTickets) * 100).toFixed(1) : 0}%`, '✅ Estable'],
-                    [''],
-                    ['🏅 ANÁLISIS DE DESEMPEÑO', '', '', ''],
-                    ['Métrica', 'Resultado', 'Evaluación', 'Recomendación'],
-                    ['Eficiencia General', `${completionRate >= 80 ? 'Alta' : completionRate >= 60 ? 'Media' : 'Baja'}`, this.getPerformanceEmoji(completionRate), completionRate >= 80 ? 'Mantener ritmo' : 'Incrementar completación'],
-                    ['Gestión de Prioridades', this.getPriorityManagement(highPriority, totalTickets), this.getPriorityEmoji(highPriority/totalTickets), highPriority/totalTickets > 0.3 ? 'Reducir alta prioridad' : 'Estrategia adecuada'],
-                    ['Velocidad Respuesta', avgDaysActive < 7 ? 'Rápida' : 'Regular', avgDaysActive < 7 ? '⚡' : '⏱️', avgDaysActive < 7 ? 'Mantener' : 'Mejorar tiempos'],
-                    [''],
-                    ['💡 RECOMENDACIONES INMEDIATAS'],
-                    ['1. Priorizar tickets con más de 7 días de antigüedad'],
-                    ['2. Revisar tickets de alta prioridad pendientes'],
-                    ['3. Establecer metas de completación semanal'],
-                    ['4. Optimizar procesos para reducir tiempos']
-                ];
-
-                const ws = XLSX.utils.aoa_to_sheet(summaryData);
-                
-                ws['!cols'] = [
-                    {wch: 25}, {wch: 15}, {wch: 12}, {wch: 20}
-                ];
-
-                XLSX.utils.book_append_sheet(wb, ws, "🏆 Resumen Ejecutivo");
-            }
-
-            createChartsSheet(wb, data) {
-                const chartsData = [
-                    ['📊 DATOS PARA GRÁFICOS - OLAND SEGUROS'],
-                    [''],
-                    ['Estos datos pueden ser utilizados para crear gráficos visuales en Excel'],
-                    [''],
-                    ['📈 DISTRIBUCIÓN POR PRIORIDAD'],
-                    ['Prioridad', 'Cantidad', 'Porcentaje', 'Color'],
-                    ['Alta', data.filter(t => t.priority === 'high').length, '35%', '🔴'],
-                    ['Media', data.filter(t => t.priority === 'medium').length, '45%', '🟡'],
-                    ['Baja', data.filter(t => t.priority === 'low').length, '20%', '🟢'],
-                    [''],
-                    ['📅 EVOLUCIÓN TEMPORAL'],
-                    ['Período', 'Tickets Creados', 'Tickets Completados', 'Tasa Éxito'],
-                    ['Semana 1', 15, 12, '80%'],
-                    ['Semana 2', 18, 15, '83%'],
-                    ['Semana 3', 22, 18, '82%'],
-                    ['Semana 4', 20, 17, '85%'],
-                    [''],
-                    ['🎯 EFICIENCIA POR TIPO'],
-                    ['Categoría', 'Tickets', 'Completados', 'Eficiencia'],
-                    ['Soporte Técnico', 25, 20, '80%'],
-                    ['Desarrollo', 18, 15, '83%'],
-                    ['Operaciones', 12, 10, '83%'],
-                    ['Administrativo', 8, 7, '88%']
-                ];
-
-                const ws = XLSX.utils.aoa_to_sheet(chartsData);
-                XLSX.utils.book_append_sheet(wb, ws, "📈 Datos Gráficos");
-            }
-
-            // Funciones auxiliares para estilos y formatos
-            applyStatsStyles(ws, rowCount, colCount) {
-                // Esta función aplica estilos básicos a las celdas
-                // Nota: XLSX.js tiene capacidades limitadas de estilo
-                // Los estilos más avanzados se aplican mediante la estructura de datos
-            }
-
-            // Funciones auxiliares para emojis y formatos
-            getPriorityEmoji(priority) {
-                const emojis = {
-                    'high': '🔴',
-                    'medium': '🟡', 
-                    'low': '🟢'
-                };
-                return emojis[priority] || '⚪';
-            }
-
-            getStatusEmoji(value, target) {
-                if (value >= target) return '✅';
-                if (value >= target * 0.7) return '🟡';
-                return '🔴';
-            }
-
-            getPerformanceEmoji(rate) {
-                if (rate >= 90) return '🏆';
-                if (rate >= 80) return '✅';
-                if (rate >= 60) return '🟡';
-                return '🔴';
-            }
-
-            getKpiStatus(value, target) {
-                if (value >= target) return '✅ Excelente';
-                if (value >= target * 0.8) return '🟡 Bueno';
-                return '🔴 Requiere Atención';
-            }
-
-            getTimeLabel(dateString) {
-                const days = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24));
-                if (days < 1) return '🆕 Hoy';
-                if (days < 3) return '⚡ Reciente';
-                if (days < 7) return '📅 Esta semana';
-                if (days < 30) return '📋 Este mes';
-                return '📊 Antiguo';
-            }
-
-            generateObservations(ticket) {
-                const days = Math.floor((new Date() - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24));
-                const observations = [];
-                
-                if (ticket.status === 'active' && days > 7) {
-                    observations.push('⚠️ Atención: Ticket pendiente más de 7 días');
-                }
-                if (ticket.priority === 'high' && ticket.status === 'active') {
-                    observations.push('🚨 Urgente: Prioridad alta pendiente');
-                }
-                if (days < 1) {
-                    observations.push('🆕 Nuevo: Creado hoy');
-                }
-                
-                return observations.join(' | ') || '✅ En proceso normal';
-            }
-
-            getPriorityManagement(highPriority, total) {
-                const ratio = highPriority / total;
-                if (ratio < 0.2) return 'Excelente';
-                if (ratio < 0.3) return 'Buena';
-                if (ratio < 0.4) return 'Regular';
-                return 'Crítica';
-            }
-
-            generateStatsData() {
-                const totalTickets = this.tickets.length;
-                const activeTickets = this.tickets.filter(t => t.status === 'active').length;
-                const completedTickets = this.tickets.filter(t => t.status === 'completed').length;
-                const highPriority = this.tickets.filter(t => t.priority === 'high').length;
-                const mediumPriority = this.tickets.filter(t => t.priority === 'medium').length;
-                const lowPriority = this.tickets.filter(t => t.priority === 'low').length;
-                
-                const highActive = this.tickets.filter(t => t.priority === 'high' && t.status === 'active').length;
-                const highCompleted = this.tickets.filter(t => t.priority === 'high' && t.status === 'completed').length;
-                const mediumActive = this.tickets.filter(t => t.priority === 'medium' && t.status === 'active').length;
-                const mediumCompleted = this.tickets.filter(t => t.priority === 'medium' && t.status === 'completed').length;
-                const lowActive = this.tickets.filter(t => t.priority === 'low' && t.status === 'active').length;
-                const lowCompleted = this.tickets.filter(t => t.priority === 'low' && t.status === 'completed').length;
-
-                const completionRate = totalTickets > 0 ? ((completedTickets / totalTickets) * 100).toFixed(1) : 0;
-                const highCompletionRate = highPriority > 0 ? ((highCompleted / highPriority) * 100).toFixed(1) : 0;
-                const mediumCompletionRate = mediumPriority > 0 ? ((mediumCompleted / mediumPriority) * 100).toFixed(1) : 0;
-                const lowCompletionRate = lowPriority > 0 ? ((lowCompleted / lowPriority) * 100).toFixed(1) : 0;
-                const activePercentage = totalTickets > 0 ? ((activeTickets / totalTickets) * 100).toFixed(1) : 0;
-
-                const today = new Date();
-                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                
-                const lastWeekCreated = this.tickets.filter(t => new Date(t.created_at) > lastWeek).length;
-                const lastWeekCompleted = this.tickets.filter(t => t.status === 'completed' && new Date(t.updated_at) > lastWeek).length;
-                const lastMonthCreated = this.tickets.filter(t => new Date(t.created_at) > lastMonth).length;
-                const lastMonthCompleted = this.tickets.filter(t => t.status === 'completed' && new Date(t.updated_at) > lastMonth).length;
-
-                const lastWeekRate = lastWeekCreated > 0 ? ((lastWeekCompleted / lastWeekCreated) * 100).toFixed(1) : 0;
-                const lastMonthRate = lastMonthCreated > 0 ? ((lastMonthCompleted / lastMonthCreated) * 100).toFixed(1) : 0;
-
-                // Calcular tiempos promedio
-                const completedTicketsList = this.tickets.filter(t => t.status === 'completed');
-                const avgCompletionTime = completedTicketsList.length > 0 ? 
-                    Math.floor(completedTicketsList.reduce((acc, ticket) => 
-                        acc + Math.floor((new Date(ticket.updated_at) - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)), 0) / completedTicketsList.length) : 0;
-
-                const lastWeekCompletedTickets = completedTicketsList.filter(t => new Date(t.updated_at) > lastWeek);
-                const lastWeekAvgTime = lastWeekCompletedTickets.length > 0 ?
-                    Math.floor(lastWeekCompletedTickets.reduce((acc, ticket) => 
-                        acc + Math.floor((new Date(ticket.updated_at) - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)), 0) / lastWeekCompletedTickets.length) : 0;
-
-                const lastMonthCompletedTickets = completedTicketsList.filter(t => new Date(t.updated_at) > lastMonth);
-                const lastMonthAvgTime = lastMonthCompletedTickets.length > 0 ?
-                    Math.floor(lastMonthCompletedTickets.reduce((acc, ticket) => 
-                        acc + Math.floor((new Date(ticket.updated_at) - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)), 0) / lastMonthCompletedTickets.length) : 0;
-
-                // Calcular eficiencia general
-                const efficiency = Math.min(100, ((completionRate * 0.4) + (100 - activePercentage * 0.3) + (Math.max(0, 100 - avgCompletionTime * 2) * 0.3))).toFixed(1);
-
-                // Tendencias
-                const completionTrend = completionRate >= 80 ? '📈 Ascendente' : completionRate >= 60 ? '➡️ Estable' : '📉 Descendente';
-                const activeTrend = activeTickets < 10 ? '📉 Mejorando' : activeTickets < 20 ? '➡️ Estable' : '📈 Aumentando';
-                const efficiencyTrend = efficiency >= 85 ? '📈 Excelente' : efficiency >= 70 ? '➡️ Buena' : '📉 Regular';
-                const timeTrend = avgCompletionTime < 7 ? '📈 Rápido' : avgCompletionTime < 14 ? '➡️ Normal' : '📉 Lento';
-                const backlogTrend = activeTickets < 10 ? '📉 Controlado' : activeTickets < 20 ? '➡️ Moderado' : '📈 Alto';
-
-                // Recomendaciones
-                const recommendations = [
-                    ['Gestión de Prioridades', 'Implementar revisión diaria de tickets alta prioridad', 'Alta', '20% mejora', 'Medio', '1 semana'],
-                    ['Optimización Tiempos', 'Establecer SLAs por tipo de ticket', 'Media', '15% reducción', 'Alto', '2 semanas'],
-                    ['Capacitación', 'Entrenamiento en uso eficiente del sistema', 'Media', '10% eficiencia', 'Bajo', '3 semanas'],
-                    ['Automatización', 'Automatizar tickets recurrentes', 'Baja', '25% tiempo', 'Alto', '1 mes']
-                ];
-
-                return {
-                    totalTickets,
-                    activeTickets,
-                    completedTickets,
-                    completionRate: parseFloat(completionRate),
-                    highPriority,
-                    mediumPriority,
-                    lowPriority,
-                    highPercentage: totalTickets > 0 ? ((highPriority / totalTickets) * 100).toFixed(1) : 0,
-                    mediumPercentage: totalTickets > 0 ? ((mediumPriority / totalTickets) * 100).toFixed(1) : 0,
-                    lowPercentage: totalTickets > 0 ? ((lowPriority / totalTickets) * 100).toFixed(1) : 0,
-                    highActive,
-                    highCompleted,
-                    mediumActive,
-                    mediumCompleted,
-                    lowActive,
-                    lowCompleted,
-                    highCompletionRate: parseFloat(highCompletionRate),
-                    mediumCompletionRate: parseFloat(mediumCompletionRate),
-                    lowCompletionRate: parseFloat(lowCompletionRate),
-                    activePercentage: parseFloat(activePercentage),
-                    lastWeekCreated,
-                    lastWeekCompleted,
-                    lastMonthCreated,
-                    lastMonthCompleted,
-                    lastWeekRate: parseFloat(lastWeekRate),
-                    lastMonthRate: parseFloat(lastMonthRate),
-                    avgCompletionTime,
-                    lastWeekAvgTime,
-                    lastMonthAvgTime,
-                    efficiency: parseFloat(efficiency),
-                    completionTrend,
-                    activeTrend,
-                    efficiencyTrend,
-                    timeTrend,
-                    backlogTrend,
-                    recommendations
-                };
-            }
-
-            getFormattedDate() {
-                const now = new Date();
-                return `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
-            }
-
-            getPriorityText(priority) {
-                const priorities = {
-                    'low': 'Baja',
-                    'medium': 'Media',
-                    'high': 'Alta'
-                };
-                return priorities[priority] || 'Media';
-            }
-
-            getPriorityClass(priority) {
-                return `priority-${priority}`;
-            }
-
-            renderStats() {
-                const stats = this.generateStatsData();
-                const container = document.getElementById('statsContainer');
-                
-                container.innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-icon primary">
-                            <i class="fas fa-ticket-alt"></i>
-                        </div>
-                        <div class="stat-value">${stats.totalTickets}</div>
-                        <div class="stat-label">Total de Tickets</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon warning">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div class="stat-value">${stats.activeTickets}</div>
-                        <div class="stat-label">Pendientes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon success">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div class="stat-value">${stats.completedTickets}</div>
-                        <div class="stat-label">Completados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon danger">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <div class="stat-value">${stats.completionRate}%</div>
-                        <div class="stat-label">Tasa de Completación</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon danger">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </div>
-                        <div class="stat-value">${stats.highPriority}</div>
-                        <div class="stat-label">Alta Prioridad</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon warning">
-                            <i class="fas fa-minus-circle"></i>
-                        </div>
-                        <div class="stat-value">${stats.mediumPriority}</div>
-                        <div class="stat-label">Media Prioridad</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon success">
-                            <i class="fas fa-arrow-down"></i>
-                        </div>
-                        <div class="stat-value">${stats.lowPriority}</div>
-                        <div class="stat-label">Baja Prioridad</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon primary">
-                            <i class="fas fa-calendar-week"></i>
-                        </div>
-                        <div class="stat-value">${stats.lastWeekTickets}</div>
-                        <div class="stat-label">Última Semana</div>
-                    </div>
-                `;
-
-                // Mostrar algunos tickets para análisis
-                const statsList = document.getElementById('statsTicketsList');
-                const recentTickets = this.tickets.slice(0, 5);
-                
-                if (recentTickets.length === 0) {
-                    statsList.innerHTML = `
+                    container.innerHTML = `
                         <div class="empty-state">
-                            <i class="fas fa-chart-bar"></i>
-                            <h3>No hay datos para mostrar</h3>
-                            <p>Crea algunos tickets para ver las estadísticas</p>
+                            <i class="${icon}"></i>
+                            <h3>${this.tickets.length === 0 ? '¡Bienvenido!' : 'No se encontraron tickets'}</h3>
+                            <p>${message}</p>
                         </div>
                     `;
                     return;
                 }
 
-                statsList.innerHTML = recentTickets.map(ticket => `
-                    <div class="ticket-card ${ticket.priority} ${ticket.status === 'completed' ? 'completed' : ''}">
+                container.innerHTML = filteredTickets.map(ticket => `
+                    <div class="ticket-card ${ticket.priority} ${ticket.status === 'completed' ? 'completed' : ''}" onclick="ticketSystem.viewTicket(${ticket.id})">
                         <div class="ticket-header">
                             <div>
                                 <div class="ticket-title">${ticket.title}</div>
                                 <div style="font-size: 0.8rem; color: var(--dark-gray);">
                                     <i class="far fa-calendar"></i>
-                                    ${new Date(ticket.created_at).toLocaleDateString('es-ES')}
+                                    ${new Date(ticket.created_at).toLocaleDateString('es-ES', { 
+                                        day: 'numeric', 
+                                        month: 'short',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
                                 </div>
                             </div>
                             <span class="ticket-priority ${this.getPriorityClass(ticket.priority)}">
@@ -2629,8 +2188,15 @@
                         <div class="ticket-footer">
                             <div class="ticket-date">
                                 <i class="far fa-clock"></i>
-                                ${ticket.status === 'active' ? 'Activo' : 'Completado'} • 
-                                Creado hace ${this.getTimeAgo(ticket.created_at)}
+                                ${ticket.status === 'active' ? 'Creado hace' : 'Completado hace'} ${this.getTimeAgo(ticket.status === 'active' ? ticket.created_at : ticket.updated_at)}
+                            </div>
+                            <div class="ticket-actions">
+                                <button class="action-btn" onclick="event.stopPropagation(); ticketSystem.updateTicketStatus(${ticket.id}, '${ticket.status === 'active' ? 'completed' : 'active'}')" title="${ticket.status === 'active' ? 'Completar' : 'Reactivar'}">
+                                    <i class="fas ${ticket.status === 'active' ? 'fa-check' : 'fa-redo'}"></i>
+                                </button>
+                                <button class="action-btn" onclick="event.stopPropagation(); ticketSystem.deleteTicket(${ticket.id})" title="Eliminar ticket">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -2738,50 +2304,91 @@
                 `).join('');
             }
 
-            renderTickets() {
-                const container = document.getElementById('ticketsList');
-                const filteredTickets = this.getFilteredTickets();
+            renderStats() {
+                const stats = this.generateStatsData();
+                const container = document.getElementById('statsContainer');
+                
+                container.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-icon primary">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <div class="stat-value">${stats.totalTickets}</div>
+                        <div class="stat-label">Total de Tickets</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-value">${stats.activeTickets}</div>
+                        <div class="stat-label">Pendientes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-value">${stats.completedTickets}</div>
+                        <div class="stat-label">Completados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-value">${stats.completionRate}%</div>
+                        <div class="stat-label">Tasa de Completación</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-value">${stats.highPriority}</div>
+                        <div class="stat-label">Alta Prioridad</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-minus-circle"></i>
+                        </div>
+                        <div class="stat-value">${stats.mediumPriority}</div>
+                        <div class="stat-label">Media Prioridad</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="stat-value">${stats.lowPriority}</div>
+                        <div class="stat-label">Baja Prioridad</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon primary">
+                            <i class="fas fa-calendar-week"></i>
+                        </div>
+                        <div class="stat-value">${stats.lastWeekCreated}</div>
+                        <div class="stat-label">Última Semana</div>
+                    </div>
+                `;
 
-                if (filteredTickets.length === 0) {
-                    let message = '';
-                    let icon = 'fas fa-ticket-alt';
-                    
-                    if (this.tickets.length === 0) {
-                        message = 'Comienza creando tu primera novedad usando el formulario de la izquierda.';
-                        icon = 'fas fa-rocket';
-                    } else if (this.currentFilter !== 'all') {
-                        message = `No hay tickets con prioridad ${this.getPriorityText(this.currentFilter).toLowerCase()}.`;
-                        icon = 'fas fa-filter';
-                    } else if (this.dateFilter) {
-                        message = `No hay tickets en el período de fecha seleccionado.`;
-                        icon = 'fas fa-calendar-times';
-                    } else {
-                        message = 'No hay tickets registrados aún.';
-                    }
-
-                    container.innerHTML = `
+                const statsList = document.getElementById('statsTicketsList');
+                const recentTickets = this.tickets.slice(0, 5);
+                
+                if (recentTickets.length === 0) {
+                    statsList.innerHTML = `
                         <div class="empty-state">
-                            <i class="${icon}"></i>
-                            <h3>${this.tickets.length === 0 ? '¡Bienvenido!' : 'No se encontraron tickets'}</h3>
-                            <p>${message}</p>
+                            <i class="fas fa-chart-bar"></i>
+                            <h3>No hay datos para mostrar</h3>
+                            <p>Crea algunos tickets para ver las estadísticas</p>
                         </div>
                     `;
                     return;
                 }
 
-                container.innerHTML = filteredTickets.map(ticket => `
-                    <div class="ticket-card ${ticket.priority} ${ticket.status === 'completed' ? 'completed' : ''}" onclick="ticketSystem.viewTicket(${ticket.id})">
+                statsList.innerHTML = recentTickets.map(ticket => `
+                    <div class="ticket-card ${ticket.priority} ${ticket.status === 'completed' ? 'completed' : ''}">
                         <div class="ticket-header">
                             <div>
                                 <div class="ticket-title">${ticket.title}</div>
                                 <div style="font-size: 0.8rem; color: var(--dark-gray);">
                                     <i class="far fa-calendar"></i>
-                                    ${new Date(ticket.created_at).toLocaleDateString('es-ES', { 
-                                        day: 'numeric', 
-                                        month: 'short',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    })}
+                                    ${new Date(ticket.created_at).toLocaleDateString('es-ES')}
                                 </div>
                             </div>
                             <span class="ticket-priority ${this.getPriorityClass(ticket.priority)}">
@@ -2792,19 +2399,369 @@
                         <div class="ticket-footer">
                             <div class="ticket-date">
                                 <i class="far fa-clock"></i>
-                                ${ticket.status === 'active' ? 'Creado hace' : 'Completado hace'} ${this.getTimeAgo(ticket.status === 'active' ? ticket.created_at : ticket.updated_at)}
-                            </div>
-                            <div class="ticket-actions">
-                                <button class="action-btn" onclick="event.stopPropagation(); ticketSystem.updateTicketStatus(${ticket.id}, '${ticket.status === 'active' ? 'completed' : 'active'}')" title="${ticket.status === 'active' ? 'Completar' : 'Reactivar'}">
-                                    <i class="fas ${ticket.status === 'active' ? 'fa-check' : 'fa-redo'}"></i>
-                                </button>
-                                <button class="action-btn" onclick="event.stopPropagation(); ticketSystem.deleteTicket(${ticket.id})" title="Eliminar ticket">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                ${ticket.status === 'active' ? 'Activo' : 'Completado'} • 
+                                Creado hace ${this.getTimeAgo(ticket.created_at)}
                             </div>
                         </div>
                     </div>
                 `).join('');
+            }
+
+            showExportModal() {
+                document.getElementById('exportModal').classList.add('active');
+            }
+
+            closeExportModal() {
+                document.getElementById('exportModal').classList.remove('active');
+            }
+
+            exportToExcel(type = 'all') {
+                let dataToExport = [];
+                let fileName = '';
+
+                switch(type) {
+                    case 'all':
+                        dataToExport = this.tickets;
+                        fileName = `Reporte_Completo_Tickets_${this.getFormattedDate()}`;
+                        break;
+                    case 'current':
+                        dataToExport = this.getFilteredTickets();
+                        let filterInfo = '';
+                        if (this.currentFilter !== 'all') {
+                            filterInfo += `_${this.currentFilter}`;
+                        }
+                        if (this.dateFilter) {
+                            let dateInfo = '';
+                            switch(this.activeDateFilterType) {
+                                case 'today': dateInfo = 'hoy'; break;
+                                case 'yesterday': dateInfo = 'ayer'; break;
+                                case 'week': dateInfo = 'esta_semana'; break;
+                                case 'month': dateInfo = 'este_mes'; break;
+                                case 'last-month': dateInfo = 'mes_pasado'; break;
+                                case 'custom': 
+                                    const start = document.getElementById('startDate').value;
+                                    const end = document.getElementById('endDate').value;
+                                    dateInfo = `${start}_a_${end}`;
+                                    break;
+                                case 'specific':
+                                    const specific = document.getElementById('specificDate').value;
+                                    dateInfo = specific;
+                                    break;
+                            }
+                            filterInfo += `_${dateInfo}`;
+                        }
+                        fileName = `Reporte_Filtrado${filterInfo}_${this.getFormattedDate()}`;
+                        break;
+                    case 'stats':
+                        dataToExport = this.generateStatsData();
+                        fileName = `Reporte_Estadisticas_Avanzado_${this.getFormattedDate()}`;
+                        break;
+                }
+
+                this.generateProfessionalExcel(dataToExport, fileName, type);
+                this.closeExportModal();
+                this.showNotification('✅ Reporte generado', `El archivo ${fileName}.xlsx se ha descargado correctamente`, 'success');
+            }
+
+            generateProfessionalExcel(data, fileName, type) {
+                const wb = XLSX.utils.book_new();
+
+                if (type === 'stats') {
+                    this.createStatsSheet(wb, data);
+                } else {
+                    this.createTicketsSheet(wb, data, fileName);
+                    this.createExecutiveSummary(wb, data);
+                    this.createChartsSheet(wb, data);
+                }
+
+                XLSX.writeFile(wb, `${fileName}.xlsx`);
+            }
+
+            createStatsSheet(wb, stats) {
+                const statsData = [
+                    ['🏢 OLAND SEGUROS', '', '', '', '', ''],
+                    ['📊 REPORTE ESTADÍSTICO AVANZADO', '', '', '', '', ''],
+                    ['Sistema de Gestión de Tickets y Novedades', '', '', '', '', ''],
+                    ['', '', '', '', '', ''],
+                    
+                    ['📋 INFORMACIÓN DEL REPORTE', '', '', '', '', ''],
+                    ['Fecha de generación:', new Date().toLocaleDateString('es-ES'), '', '', '', ''],
+                    ['Hora de generación:', new Date().toLocaleTimeString('es-ES'), '', '', '', ''],
+                    ['Período analizado:', 'Desde el inicio del sistema', '', '', '', ''],
+                    ['', '', '', '', '', ''],
+                    
+                    ['🎯 RESUMEN EJECUTIVO', '', '', '', '', ''],
+                    ['Métrica', 'Valor', 'Porcentaje', 'Tendencia', 'Meta', 'Estado'],
+                    ['Total de Tickets', stats.totalTickets, '100%', '📈', 'N/A', '✅ Completado'],
+                    ['Tickets Activos', stats.activeTickets, `${stats.activePercentage}%`, stats.activeTrend, 'Minimizar', this.getStatusEmoji(stats.activePercentage, 20)],
+                    ['Tickets Completados', stats.completedTickets, `${stats.completionRate}%`, stats.completionTrend, 'Maximizar', this.getStatusEmoji(stats.completionRate, 80)],
+                    ['Eficiencia del Sistema', `${stats.efficiency}%`, `${stats.efficiency}%`, stats.efficiencyTrend, '> 85%', this.getStatusEmoji(stats.efficiency, 85)],
+                    ['', '', '', '', '', ''],
+                    
+                    ['🚨 ANÁLISIS DE PRIORIDADES', '', '', '', '', ''],
+                    ['Prioridad', 'Cantidad', 'Porcentaje', 'Tickets Activos', 'Tickets Completados', 'Tasa de Completación'],
+                    ['🔴 ALTA URGENCIA', stats.highPriority, `${stats.highPercentage}%`, stats.highActive, stats.highCompleted, `${stats.highCompletionRate}%`],
+                    ['🟡 PRIORIDAD MEDIA', stats.mediumPriority, `${stats.mediumPercentage}%`, stats.mediumActive, stats.mediumCompleted, `${stats.mediumCompletionRate}%`],
+                    ['🟢 PRIORIDAD BAJA', stats.lowPriority, `${stats.lowPercentage}%`, stats.lowActive, stats.lowCompleted, `${stats.lowCompletionRate}%`],
+                    ['', '', '', '', '', ''],
+                    
+                    ['📅 ANÁLISIS TEMPORAL', '', '', '', '', ''],
+                    ['Período', 'Tickets Creados', 'Tickets Completados', 'Tasa de Completación', 'Tiempo Promedio', 'Eficiencia'],
+                    ['Últimos 7 días', stats.lastWeekCreated, stats.lastWeekCompleted, `${stats.lastWeekRate}%`, `${stats.lastWeekAvgTime}d`, this.getStatusEmoji(stats.lastWeekRate, 75)],
+                    ['Últimos 30 días', stats.lastMonthCreated, stats.lastMonthCompleted, `${stats.lastMonthRate}%`, `${stats.lastMonthAvgTime}d`, this.getStatusEmoji(stats.lastMonthRate, 75)],
+                    ['Total Histórico', stats.totalTickets, stats.completedTickets, `${stats.completionRate}%`, `${stats.avgCompletionTime}d`, this.getStatusEmoji(stats.completionRate, 80)],
+                    ['', '', '', '', '', ''],
+                ];
+
+                const ws = XLSX.utils.aoa_to_sheet(statsData);
+                ws['!cols'] = [
+                    {wch: 25}, {wch: 15}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 15}
+                ];
+
+                XLSX.utils.book_append_sheet(wb, ws, "📊 Dashboard Ejecutivo");
+            }
+
+            createTicketsSheet(wb, data, fileName) {
+                const headerData = [
+                    ['🏢 OLAND SEGUROS'],
+                    ['🎫 SISTEMA DE GESTIÓN DE TICKETS'],
+                    [fileName],
+                    [`Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`],
+                    [''],
+                    ['']
+                ];
+
+                const ticketsData = data.map(ticket => ({
+                    '🔖 ID': ticket.id,
+                    '📌 TÍTULO': ticket.title,
+                    '📝 DESCRIPCIÓN': ticket.description,
+                    '🚨 PRIORIDAD': this.getPriorityEmoji(ticket.priority) + ' ' + this.getPriorityText(ticket.priority),
+                    '📊 ESTADO': this.getStatusEmoji(ticket.status === 'active' ? 0 : 100, 50) + ' ' + (ticket.status === 'active' ? 'PENDIENTE' : 'COMPLETADO'),
+                    '📅 FECHA CREACIÓN': new Date(ticket.created_at).toLocaleDateString('es-ES'),
+                    '⏰ HORA CREACIÓN': new Date(ticket.created_at).toLocaleTimeString('es-ES'),
+                    '🔄 ÚLTIMA ACTUALIZACIÓN': new Date(ticket.updated_at).toLocaleDateString('es-ES'),
+                    '⏱️ DÍAS TRANSCURRIDOS': Math.floor((new Date() - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)),
+                    '🎯 ETIQUETA TEMPORAL': this.getTimeLabel(ticket.created_at),
+                    '💡 OBSERVACIONES': this.generateObservations(ticket)
+                }));
+
+                const allData = [
+                    ...headerData,
+                    Object.keys(ticketsData[0] || {}),
+                    ...ticketsData.map(ticket => Object.values(ticket))
+                ];
+
+                const ws = XLSX.utils.aoa_to_sheet(allData);
+                
+                ws['!cols'] = [
+                    {wch: 8},   // ID
+                    {wch: 35},  // Título
+                    {wch: 50},  // Descripción
+                    {wch: 15},  // Prioridad
+                    {wch: 15},  // Estado
+                    {wch: 12},  // Fecha
+                    {wch: 12},  // Hora
+                    {wch: 18},  // Actualización
+                    {wch: 8},   // Días
+                    {wch: 12},  // Etiqueta
+                    {wch: 30}   // Observaciones
+                ];
+
+                XLSX.utils.book_append_sheet(wb, ws, "🎫 Tickets Detallados");
+            }
+
+            createExecutiveSummary(wb, data) {
+                const totalTickets = data.length;
+                const activeTickets = data.filter(t => t.status === 'active').length;
+                const completedTickets = data.filter(t => t.status === 'completed').length;
+                const highPriority = data.filter(t => t.priority === 'high').length;
+                const mediumPriority = data.filter(t => t.priority === 'medium').length;
+                const lowPriority = data.filter(t => t.priority === 'low').length;
+
+                const completionRate = totalTickets > 0 ? ((completedTickets / totalTickets) * 100).toFixed(1) : 0;
+                const avgDaysActive = data.length > 0 ? 
+                    Math.floor(data.reduce((acc, ticket) => acc + Math.floor((new Date() - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)), 0) / data.length) : 0;
+
+                const summaryData = [
+                    ['🏆 RESUMEN EJECUTIVO - OLAND SEGUROS'],
+                    [''],
+                    ['📈 MÉTRICAS PRINCIPALES', '', '', ''],
+                    ['Indicador', 'Valor', 'Meta', 'Estado'],
+                    ['Total de Tickets', totalTickets, 'N/A', '📊'],
+                    ['Tickets Activos', activeTickets, '< 10', activeTickets < 10 ? '✅ Excelente' : '⚠️ Atención'],
+                    ['Tickets Completados', completedTickets, 'Maximizar', '✅'],
+                    ['Tasa de Completación', `${completionRate}%`, '> 80%', completionRate >= 80 ? '🎯 Cumplido' : '📈 En Progreso'],
+                    ['Tiempo Promedio', `${avgDaysActive} días`, '< 7 días', avgDaysActive < 7 ? '⚡ Excelente' : '⏱️ Regular'],
+                    [''],
+                    ['🎯 DISTRIBUCIÓN POR PRIORIDAD', '', '', ''],
+                    ['Prioridad', 'Cantidad', 'Porcentaje', 'Estado'],
+                    ['🔴 Alta Urgencia', highPriority, `${totalTickets > 0 ? ((highPriority / totalTickets) * 100).toFixed(1) : 0}%`, highPriority > 5 ? '🚨 Crítico' : '✅ Controlado'],
+                    ['🟡 Prioridad Media', mediumPriority, `${totalTickets > 0 ? ((mediumPriority / totalTickets) * 100).toFixed(1) : 0}%`, '📋 En Gestión'],
+                    ['🟢 Prioridad Baja', lowPriority, `${totalTickets > 0 ? ((lowPriority / totalTickets) * 100).toFixed(1) : 0}%`, '✅ Estable'],
+                ];
+
+                const ws = XLSX.utils.aoa_to_sheet(summaryData);
+                
+                ws['!cols'] = [
+                    {wch: 25}, {wch: 15}, {wch: 12}, {wch: 20}
+                ];
+
+                XLSX.utils.book_append_sheet(wb, ws, "🏆 Resumen Ejecutivo");
+            }
+
+            createChartsSheet(wb, data) {
+                const chartsData = [
+                    ['📊 DATOS PARA GRÁFICOS - OLAND SEGUROS'],
+                    [''],
+                    ['Estos datos pueden ser utilizados para crear gráficos visuales en Excel'],
+                    [''],
+                    ['📈 DISTRIBUCIÓN POR PRIORIDAD'],
+                    ['Prioridad', 'Cantidad', 'Porcentaje', 'Color'],
+                    ['Alta', data.filter(t => t.priority === 'high').length, '35%', '🔴'],
+                    ['Media', data.filter(t => t.priority === 'medium').length, '45%', '🟡'],
+                    ['Baja', data.filter(t => t.priority === 'low').length, '20%', '🟢'],
+                ];
+
+                const ws = XLSX.utils.aoa_to_sheet(chartsData);
+                XLSX.utils.book_append_sheet(wb, ws, "📈 Datos Gráficos");
+            }
+
+            getPriorityEmoji(priority) {
+                const emojis = {
+                    'high': '🔴',
+                    'medium': '🟡', 
+                    'low': '🟢'
+                };
+                return emojis[priority] || '⚪';
+            }
+
+            getStatusEmoji(value, target) {
+                if (value >= target) return '✅';
+                if (value >= target * 0.7) return '🟡';
+                return '🔴';
+            }
+
+            getTimeLabel(dateString) {
+                const days = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24));
+                if (days < 1) return '🆕 Hoy';
+                if (days < 3) return '⚡ Reciente';
+                if (days < 7) return '📅 Esta semana';
+                if (days < 30) return '📋 Este mes';
+                return '📊 Antiguo';
+            }
+
+            generateObservations(ticket) {
+                const days = Math.floor((new Date() - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24));
+                const observations = [];
+                
+                if (ticket.status === 'active' && days > 7) {
+                    observations.push('⚠️ Atención: Ticket pendiente más de 7 días');
+                }
+                if (ticket.priority === 'high' && ticket.status === 'active') {
+                    observations.push('🚨 Urgente: Prioridad alta pendiente');
+                }
+                if (days < 1) {
+                    observations.push('🆕 Nuevo: Creado hoy');
+                }
+                
+                return observations.join(' | ') || '✅ En proceso normal';
+            }
+
+            generateStatsData() {
+                const totalTickets = this.tickets.length;
+                const activeTickets = this.tickets.filter(t => t.status === 'active').length;
+                const completedTickets = this.tickets.filter(t => t.status === 'completed').length;
+                const highPriority = this.tickets.filter(t => t.priority === 'high').length;
+                const mediumPriority = this.tickets.filter(t => t.priority === 'medium').length;
+                const lowPriority = this.tickets.filter(t => t.priority === 'low').length;
+                
+                const highActive = this.tickets.filter(t => t.priority === 'high' && t.status === 'active').length;
+                const highCompleted = this.tickets.filter(t => t.priority === 'high' && t.status === 'completed').length;
+                const mediumActive = this.tickets.filter(t => t.priority === 'medium' && t.status === 'active').length;
+                const mediumCompleted = this.tickets.filter(t => t.priority === 'medium' && t.status === 'completed').length;
+                const lowActive = this.tickets.filter(t => t.priority === 'low' && t.status === 'active').length;
+                const lowCompleted = this.tickets.filter(t => t.priority === 'low' && t.status === 'completed').length;
+
+                const completionRate = totalTickets > 0 ? ((completedTickets / totalTickets) * 100).toFixed(1) : 0;
+                const highCompletionRate = highPriority > 0 ? ((highCompleted / highPriority) * 100).toFixed(1) : 0;
+                const mediumCompletionRate = mediumPriority > 0 ? ((mediumCompleted / mediumPriority) * 100).toFixed(1) : 0;
+                const lowCompletionRate = lowPriority > 0 ? ((lowCompleted / lowPriority) * 100).toFixed(1) : 0;
+                const activePercentage = totalTickets > 0 ? ((activeTickets / totalTickets) * 100).toFixed(1) : 0;
+
+                const today = new Date();
+                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                
+                const lastWeekCreated = this.tickets.filter(t => new Date(t.created_at) > lastWeek).length;
+                const lastWeekCompleted = this.tickets.filter(t => t.status === 'completed' && new Date(t.updated_at) > lastWeek).length;
+                const lastMonthCreated = this.tickets.filter(t => new Date(t.created_at) > lastMonth).length;
+                const lastMonthCompleted = this.tickets.filter(t => t.status === 'completed' && new Date(t.updated_at) > lastMonth).length;
+
+                const lastWeekRate = lastWeekCreated > 0 ? ((lastWeekCompleted / lastWeekCreated) * 100).toFixed(1) : 0;
+                const lastMonthRate = lastMonthCreated > 0 ? ((lastMonthCompleted / lastMonthCreated) * 100).toFixed(1) : 0;
+
+                const completedTicketsList = this.tickets.filter(t => t.status === 'completed');
+                const avgCompletionTime = completedTicketsList.length > 0 ? 
+                    Math.floor(completedTicketsList.reduce((acc, ticket) => 
+                        acc + Math.floor((new Date(ticket.updated_at) - new Date(ticket.created_at)) / (1000 * 60 * 60 * 24)), 0) / completedTicketsList.length) : 0;
+
+                const efficiency = Math.min(100, ((completionRate * 0.4) + (100 - activePercentage * 0.3) + (Math.max(0, 100 - avgCompletionTime * 2) * 0.3))).toFixed(1);
+
+                const completionTrend = completionRate >= 80 ? '📈 Ascendente' : completionRate >= 60 ? '➡️ Estable' : '📉 Descendente';
+                const activeTrend = activeTickets < 10 ? '📉 Mejorando' : activeTickets < 20 ? '➡️ Estable' : '📈 Aumentando';
+                const efficiencyTrend = efficiency >= 85 ? '📈 Excelente' : efficiency >= 70 ? '➡️ Buena' : '📉 Regular';
+
+                return {
+                    totalTickets,
+                    activeTickets,
+                    completedTickets,
+                    completionRate: parseFloat(completionRate),
+                    highPriority,
+                    mediumPriority,
+                    lowPriority,
+                    highPercentage: totalTickets > 0 ? ((highPriority / totalTickets) * 100).toFixed(1) : 0,
+                    mediumPercentage: totalTickets > 0 ? ((mediumPriority / totalTickets) * 100).toFixed(1) : 0,
+                    lowPercentage: totalTickets > 0 ? ((lowPriority / totalTickets) * 100).toFixed(1) : 0,
+                    highActive,
+                    highCompleted,
+                    mediumActive,
+                    mediumCompleted,
+                    lowActive,
+                    lowCompleted,
+                    highCompletionRate: parseFloat(highCompletionRate),
+                    mediumCompletionRate: parseFloat(mediumCompletionRate),
+                    lowCompletionRate: parseFloat(lowCompletionRate),
+                    activePercentage: parseFloat(activePercentage),
+                    lastWeekCreated,
+                    lastWeekCompleted,
+                    lastMonthCreated,
+                    lastMonthCompleted,
+                    lastWeekRate: parseFloat(lastWeekRate),
+                    lastMonthRate: parseFloat(lastMonthRate),
+                    avgCompletionTime,
+                    efficiency: parseFloat(efficiency),
+                    completionTrend,
+                    activeTrend,
+                    efficiencyTrend,
+                };
+            }
+
+            getFormattedDate() {
+                const now = new Date();
+                return `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+            }
+
+            getPriorityText(priority) {
+                const priorities = {
+                    'low': 'Baja',
+                    'medium': 'Media',
+                    'high': 'Alta'
+                };
+                return priorities[priority] || 'Media';
+            }
+
+            getPriorityClass(priority) {
+                return `priority-${priority}`;
             }
 
             getTimeAgo(dateString) {
@@ -2922,8 +2879,10 @@
                 const statusElement = document.getElementById('connectionStatus');
                 if (connected) {
                     statusElement.innerHTML = '<i class="fas fa-circle" style="color: var(--success); font-size: 0.7rem;"></i> Conectado a Supabase';
+                    statusElement.style.color = 'var(--success)';
                 } else {
-                    statusElement.innerHTML = '<i class="fas fa-circle" style="color: var(--warning); font-size: 0.7rem;"></i> Modo local (sin conexión)';
+                    statusElement.innerHTML = '<i class="fas fa-circle" style="color: var(--warning); font-size: 0.7rem;"></i> Conectando...';
+                    statusElement.style.color = 'var(--warning)';
                 }
             }
 
@@ -2968,19 +2927,6 @@
                 // El render se encargará de actualizar la vista
             }
 
-            saveToLocalStorage() {
-                localStorage.setItem('tickets_backup', JSON.stringify(this.tickets));
-            }
-
-            loadFromLocalStorage() {
-                const backup = localStorage.getItem('tickets_backup');
-                if (backup) {
-                    this.tickets = JSON.parse(backup);
-                    this.updatePageContent();
-                    this.updateStats();
-                }
-            }
-
             showNotification(title, message, type = 'success') {
                 const notification = document.getElementById('notification');
                 const notificationTitle = document.getElementById('notification-title');
@@ -2992,6 +2938,10 @@
                 notification.className = 'notification';
                 notification.classList.add(type);
                 
+                notification.style.animation = 'none';
+                notification.offsetHeight;
+                notification.style.animation = null;
+                
                 setTimeout(() => {
                     notification.classList.add('show');
                 }, 100);
@@ -3000,12 +2950,40 @@
                     notification.classList.remove('show');
                 }, 5000);
             }
+
+            showError(message) {
+                this.showNotification('Error', message, 'error');
+                console.error('❌ Error:', message);
+            }
         }
 
-        // Inicializar el sistema cuando se carga la página
+        // Inicializar el sistema
         let ticketSystem;
         document.addEventListener('DOMContentLoaded', () => {
             ticketSystem = new TicketSystem();
+            
+            // Función para crear tabla manualmente
+            window.createTableInSupabase = function() {
+                const sql = `
+                CREATE TABLE tickets (
+                    id BIGSERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    priority VARCHAR(20) NOT NULL CHECK (priority IN ('low', 'medium', 'high')),
+                    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
+
+                ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+
+                CREATE POLICY "Enable all operations" ON tickets
+                    FOR ALL USING (true) WITH CHECK (true);`;
+                
+                console.log('📝 Copia este SQL y ejecútalo en el editor SQL de Supabase:');
+                console.log(sql);
+                alert('Copia el SQL de la consola (F12) y ejecútalo en Supabase SQL Editor');
+            };
         });
     </script>
 </body>
